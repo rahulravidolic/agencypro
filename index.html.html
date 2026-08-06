@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgencyPro | Insurance Manager Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .modal { display: none; }
+        .modal.active { display: flex; }
+        .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .hide { display: none !important; }
+        
+        /* Unified Print Styles for Posters and Reports */
+        @media print {
+            body * { visibility: hidden !important; }
+            .print-area, .print-area * { visibility: visible !important; }
+            .print-area { 
+                position: absolute !important; left: 0 !important; top: 0 !important; 
+                width: 100% !important; margin: 0 !important; padding: 20px !important; 
+                background: white !important; box-shadow: none !important; border: none !important;
+            }
+            .no-print, .no-print * { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex font-sans">
+
+    <div id="loader" class="fixed inset-0 bg-slate-900/80 z-[400] hidden items-center justify-center backdrop-blur-sm flex-col no-print">
+        <div class="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-white mt-4 font-medium tracking-wider animate-pulse" id="loader-text">Syncing with Cloud...</p>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-blue-900 text-white flex flex-col h-full shadow-xl z-10 transition-all no-print">
+        <div class="p-6 flex items-center gap-3 border-b border-blue-800">
+            <i class="fas fa-shield-alt text-2xl text-blue-400"></i>
+            <h1 class="text-xl font-bold tracking-wide">Agency<span class="text-blue-400">Pro</span></h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <button onclick="nav('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-800 text-white text-left transition-colors hover:bg-blue-700"><i class="fas fa-chart-line w-5"></i> Dashboard</button>
+            <button onclick="nav('recruitment')" id="nav-recruitment" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 text-left transition-colors hover:bg-blue-700"><i class="fas fa-users w-5"></i> Recruitment</button>
+            <button onclick="nav('business')" id="nav-business" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 text-left transition-colors hover:bg-blue-700"><i class="fas fa-briefcase w-5"></i> Business & Stipend</button>
+            <button onclick="nav('competitions')" id="nav-competitions" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 text-left transition-colors hover:bg-blue-700"><i class="fas fa-trophy w-5"></i> Competitions</button>
+        </nav>
+        <div class="p-4 border-t border-blue-800 text-xs text-blue-300 text-center">v11.0 | Full Features Edition</div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative no-print">
+        <header class="bg-white h-20 px-8 flex items-center justify-between shadow-sm z-0">
+            <div class="flex items-center bg-slate-100 rounded-md px-4 py-2 w-96 border border-slate-200">
+                <i class="fas fa-search text-slate-400 mr-2"></i>
+                <input type="text" placeholder="Search..." class="bg-transparent border-none outline-none w-full text-sm">
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="text-right"><p class="text-xs text-slate-500 uppercase font-semibold">Active Agents</p><p class="text-lg font-bold text-blue-900" id="top-active-agents">0</p></div>
+                <div class="h-10 w-px bg-slate-200"></div>
+                <div class="text-right"><p class="text-xs text-slate-500 uppercase font-semibold">Month Premium</p><p class="text-lg font-bold text-green-600" id="top-month-premium">₹0</p></div>
+                <button onclick="exportCSV()" class="ml-4 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium shadow flex items-center gap-2"><i class="fas fa-file-export"></i> Export</button>
+            </div>
+        </header>
+
+        <!-- Dynamic Views -->
+        <div class="flex-1 overflow-y-auto p-8 bg-slate-50" id="main-content">
+            
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view-section space-y-6">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Overview</h2>
+                <div class="grid grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-blue-500"><p class="text-sm text-slate-500 font-medium">Total Prospects</p><h3 class="text-3xl font-bold text-slate-800 mt-2" id="stat-prospects">0</h3></div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-green-500"><p class="text-sm text-slate-500 font-medium">Active Agents</p><h3 class="text-3xl font-bold text-slate-800 mt-2" id="stat-agents">0</h3></div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-purple-500"><p class="text-sm text-slate-500 font-medium">YTD Policies</p><h3 class="text-3xl font-bold text-slate-800 mt-2" id="stat-policies">0</h3></div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-indigo-500"><p class="text-sm text-slate-500 font-medium">YTD Premium</p><h3 class="text-3xl font-bold text-slate-800 mt-2" id="stat-premium">₹0</h3></div>
+                </div>
+
+                <!-- Active/Inactive Agents Panel -->
+                <div class="grid grid-cols-2 gap-6 mt-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <div class="flex items-center justify-between mb-4 border-b pb-2">
+                            <h4 class="font-bold text-green-700 uppercase tracking-wide text-sm"><i class="fas fa-user-check mr-2"></i>Active Agents (This Month)</h4>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold" id="dash-active-count">0</span>
+                        </div>
+                        <ul id="dash-active-agents" class="space-y-2 text-sm max-h-48 overflow-y-auto pr-2"></ul>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <div class="flex items-center justify-between mb-4 border-b pb-2">
+                            <h4 class="font-bold text-red-700 uppercase tracking-wide text-sm"><i class="fas fa-user-times mr-2"></i>Inactive Agents (This Month)</h4>
+                            <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold" id="dash-inactive-count">0</span>
+                        </div>
+                        <ul id="dash-inactive-agents" class="space-y-2 text-sm max-h-48 overflow-y-auto pr-2 text-slate-500"></ul>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-6 mt-6">
+                    <!-- YoY Comparison -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50"><h3 class="font-bold text-lg text-slate-800">Performance: YoY</h3></div>
+                        <div class="p-6 space-y-6">
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-500 uppercase mb-2">Total Premium</h4>
+                                <div class="flex justify-between items-end">
+                                    <div><p class="text-xs text-slate-400 mb-1" id="label-curr-year-prem">Current Year</p><p class="text-2xl font-bold text-slate-800" id="yoy-curr-prem">₹0</p></div>
+                                    <div class="text-right"><p class="text-xs text-slate-400 mb-1" id="label-prev-year-prem">Last Year</p><p class="text-lg font-medium text-slate-600" id="yoy-prev-prem">₹0</p></div>
+                                </div>
+                                <div class="mt-2 p-2 rounded flex justify-between" id="yoy-prem-diff-container"><span class="text-xs font-bold" id="yoy-prem-diff">0%</span></div>
+                            </div>
+                            <div class="border-t border-slate-100 pt-6">
+                                <h4 class="text-sm font-semibold text-slate-500 uppercase mb-2">Total Policies</h4>
+                                <div class="flex justify-between items-end">
+                                    <div><p class="text-xs text-slate-400 mb-1" id="label-curr-year-pol">Current Year</p><p class="text-2xl font-bold text-slate-800" id="yoy-curr-pol">0</p></div>
+                                    <div class="text-right"><p class="text-xs text-slate-400 mb-1" id="label-prev-year-pol">Last Year</p><p class="text-lg font-medium text-slate-600" id="yoy-prev-pol">0</p></div>
+                                </div>
+                                <div class="mt-2 p-2 rounded flex justify-between" id="yoy-pol-diff-container"><span class="text-xs font-bold" id="yoy-pol-diff">0%</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Live Competitions -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center"><h3 class="font-bold text-lg text-slate-800">Live Competitions</h3><button onclick="nav('competitions')" class="text-blue-600 text-sm font-medium hover:underline">View All</button></div>
+                        <div class="p-0 overflow-y-auto max-h-[400px]"><ul class="divide-y divide-slate-100" id="dash-competitions-list"></ul></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recruitment View -->
+            <section id="view-recruitment" class="view-section hide space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-slate-800">Recruitment Pipeline</h2>
+                    <button onclick="openAgentModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow"><i class="fas fa-plus mr-2"></i> Add Prospect</button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex gap-4 bg-slate-50 items-center">
+                        <span class="text-sm font-bold text-slate-500 uppercase">Filters:</span>
+                        <select id="filter-location" onchange="renderRecruitment()" class="border rounded px-3 py-1.5 text-sm bg-white outline-none focus:border-blue-500"><option value="All">All Locations</option></select>
+                        <select id="filter-category" onchange="renderRecruitment()" class="border rounded px-3 py-1.5 text-sm bg-white outline-none focus:border-blue-500"><option value="All">All Categories</option><option value="Normal">Normal</option><option value="RCA">RCA</option><option value="Bima Sakhi">Bima Sakhi</option></select>
+                        <select id="filter-status" onchange="renderRecruitment()" class="border rounded px-3 py-1.5 text-sm bg-white outline-none focus:border-blue-500"><option value="All">All Statuses</option><option value="Prospect">Prospect</option><option value="Registered">Registered</option><option value="Exam Pending">Exam Pending</option><option value="Passed/Active">Passed/Active</option></select>
+                    </div>
+                    <div class="overflow-x-auto table-container">
+                        <table class="w-full text-left border-collapse">
+                            <thead><tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider"><th class="p-4 font-semibold">Name & Contact</th><th class="p-4 font-semibold">Category</th><th class="p-4 font-semibold">Status & Code Info</th><th class="p-4 font-semibold">Fees Status</th><th class="p-4 font-semibold text-right">Actions</th></tr></thead>
+                            <tbody id="recruitment-tbody" class="text-sm divide-y divide-slate-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Business & Stipend View -->
+            <section id="view-business" class="view-section hide space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-slate-800">Agent Business Tracking</h2>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openRenewalModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow"><i class="fas fa-sync mr-2"></i> Log Renewal</button>
+                        <button onclick="openPolicyModal(null)" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow"><i class="fas fa-plus mr-2"></i> Log Business</button>
+                    </div>
+                </div>
+                
+                <!-- Business Filter Bar -->
+                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex gap-4 items-center">
+                        <select id="biz-filter-month" class="border rounded p-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-400"></select>
+                        <input type="number" id="biz-filter-year" class="border rounded p-2 text-sm bg-slate-50 w-24 focus:ring-2 focus:ring-blue-400" min="2000">
+                        <select id="biz-filter-agent" class="border rounded p-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-400"><option value="All">All Agents</option></select>
+                        <button onclick="renderBusiness()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Apply Filter</button>
+                    </div>
+                    <div class="flex items-center gap-2 bg-slate-200 p-1 rounded-lg text-sm font-medium">
+                        <button id="tab-biz-summary" onclick="toggleBusinessView('summary')" class="px-4 py-1.5 rounded-md bg-white shadow-sm text-slate-800">Agent Summary</button>
+                        <button id="tab-biz-datewise" onclick="toggleBusinessView('datewise')" class="px-4 py-1.5 rounded-md text-slate-500 hover:text-slate-800">Date-wise Log</button>
+                    </div>
+                    <button onclick="generateBizReport()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded text-sm font-medium shadow"><i class="fas fa-print mr-2"></i> Print Report</button>
+                </div>
+
+                <div class="grid gap-6 grid-cols-1" id="business-summary-container"></div>
+                <div id="business-datewise-container" class="hide bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto table-container">
+                        <table class="w-full text-left border-collapse">
+                            <thead><tr class="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider"><th class="p-4 font-semibold">Date</th><th class="p-4 font-semibold">Agent Name</th><th class="p-4 font-semibold">Plan No.</th><th class="p-4 font-semibold text-right">Premium Split (NSP / SP)</th><th class="p-4 font-semibold text-right">Total Premium</th><th class="p-4 font-semibold text-right">Actions</th></tr></thead>
+                            <tbody id="business-datewise-tbody" class="text-sm divide-y divide-slate-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Competitions View -->
+            <section id="view-competitions" class="view-section hide space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-slate-800">Competitions & Leaderboard</h2>
+                    <div class="flex gap-4">
+                        <button onclick="openAgentReportModal()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium shadow"><i class="fas fa-file-invoice mr-2"></i> Agent Prize Report</button>
+                        <button onclick="openCompModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow"><i class="fas fa-trophy mr-2"></i> New Competition</button>
+                    </div>
+                </div>
+
+                <!-- Competition Filter Bar -->
+                <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <select id="comp-filter-type" onchange="toggleCompFilters()" class="border rounded p-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-400">
+                        <option value="live">Live / Current Month</option>
+                        <option value="month">Specific Month & Year</option>
+                        <option value="year">Specific Year</option>
+                        <option value="all">All Competitions</option>
+                    </select>
+                    <select id="comp-filter-month" class="border rounded p-2 text-sm bg-slate-50 hide"></select>
+                    <input type="number" id="comp-filter-year" class="border rounded p-2 text-sm bg-slate-50 w-24 hide" min="2000">
+                    <button onclick="renderCompetitions()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">Apply Filter</button>
+                </div>
+
+                <div id="competitions-container" class="space-y-6"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- MODALS -->
+
+    <!-- Cloud Setup Modal -->
+    <div id="modal-setup" class="modal fixed inset-0 bg-slate-900/90 z-[500] items-center justify-center backdrop-blur-md no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-[600px] overflow-hidden">
+            <div class="p-8 text-center bg-blue-900 text-white">
+                <i class="fas fa-cloud-upload-alt text-5xl mb-4 text-blue-300"></i>
+                <h2 class="text-2xl font-bold">Connect Cloud Database</h2>
+                <p class="text-sm text-blue-200 mt-2">Link your Google Apps Script URL to sync data. You can skip this to use offline mode.</p>
+            </div>
+            <div class="p-8 space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Google Apps Script Web App URL</label>
+                    <input type="url" id="setup-api-url" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500" placeholder="https://script.google.com/macros/s/.../exec">
+                </div>
+                <div class="flex gap-4 mt-4">
+                    <button onclick="saveApiUrl()" class="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow text-lg">Connect Cloud</button>
+                    <button onclick="useOfflineMode()" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-lg shadow text-lg">Use Offline</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Agent (Add/Edit) Modal -->
+    <div id="modal-agent" class="modal fixed inset-0 bg-slate-900/50 z-50 items-center justify-center backdrop-blur-sm no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-[500px] overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg text-slate-800" id="modal-agent-title">Add Prospect</h3><button onclick="closeModal('modal-agent')" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times"></i></button></div>
+            <div class="p-6 overflow-y-auto">
+                <form id="form-agent" onsubmit="saveAgent(event)" class="space-y-4">
+                    <input type="hidden" id="ag-id">
+                    <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="ag-name" required class="w-full border rounded-md p-2 text-sm"></div>
+                    <div><label class="block text-sm font-medium mb-1">Phone Number</label><input type="text" id="ag-phone" required class="w-full border rounded-md p-2 text-sm"></div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Location</label>
+                        <!-- Autocomplete Location List -->
+                        <input type="text" id="ag-location" list="location-options" required class="w-full border rounded-md p-2 text-sm" autocomplete="off" placeholder="Enter or select location">
+                        <datalist id="location-options"></datalist>
+                    </div>
+                    <div><label class="block text-sm font-medium mb-1">Category</label><select id="ag-category" class="w-full border rounded-md p-2 text-sm"><option>Normal</option><option>RCA</option><option>Bima Sakhi</option></select></div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-md mt-4">Save Prospect</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fees Modal -->
+    <div id="modal-fees" class="modal fixed inset-0 bg-slate-900/50 z-50 items-center justify-center backdrop-blur-sm no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-[500px]"><div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg">Manage Fees</h3><button onclick="closeModal('modal-fees')" class="text-slate-400"><i class="fas fa-times"></i></button></div><div class="p-6"><input type="hidden" id="fee-agent-id"><div class="space-y-4" id="fees-container"></div><button onclick="saveFees()" class="w-full bg-blue-600 text-white font-medium py-2.5 rounded-md mt-6">Update Fees</button></div></div>
+    </div>
+
+    <!-- Policy Modal -->
+    <div id="modal-policy" class="modal fixed inset-0 bg-slate-900/50 z-50 items-center justify-center backdrop-blur-sm no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-[500px] flex flex-col max-h-[95vh]">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg" id="modal-policy-title">Log Policy & Comm</h3><button onclick="closeModal('modal-policy')" class="text-slate-400"><i class="fas fa-times"></i></button></div>
+            <div class="p-6 overflow-y-auto">
+                <form id="form-policy" onsubmit="savePolicy(event)" class="space-y-4">
+                    <input type="hidden" id="pol-id">
+                    <div><label class="block text-sm font-medium mb-1">Select Agent</label><select id="pol-agent-select" required class="w-full border rounded-md p-2 text-sm bg-white"></select></div>
+                    <div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Date</label><input type="date" id="pol-date" required class="w-full border rounded-md p-2 text-sm"></div><div><label class="block text-sm font-medium mb-1">Plan Number</label><input type="text" id="pol-plan" required class="w-full border rounded-md p-2 text-sm"></div></div>
+                    <div class="grid grid-cols-2 gap-4 border-t pt-4"><div><label class="block text-sm font-medium mb-1">NSP (₹)</label><input type="number" id="pol-nsp" value="0" required class="w-full border rounded-md p-2 text-sm" oninput="calcComm()"></div><div><label class="block text-sm font-medium mb-1">SP (₹)</label><input type="number" id="pol-sp" value="0" required class="w-full border rounded-md p-2 text-sm" oninput="calcComm()"></div></div>
+                    <div class="bg-blue-50 p-4 rounded-lg border space-y-3">
+                        <h4 class="text-sm font-bold text-blue-900 border-b pb-1">Commission Breakdown</h4>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div><label class="block text-[10px] uppercase font-bold text-slate-500">NSP Comm %</label><input type="number" id="pol-nsp-pct" value="20" class="w-full border rounded p-1 text-sm text-center" oninput="calcComm()"></div><div><label class="block text-[10px] uppercase font-bold text-slate-500">Bonus %</label><input type="number" id="pol-bonus-pct" value="8" class="w-full border rounded p-1 text-sm text-center" oninput="calcComm()"></div><div><label class="block text-[10px] uppercase font-bold text-slate-500">SP Comm %</label><input type="number" id="pol-sp-pct" value="2" class="w-full border rounded p-1 text-sm text-center" oninput="calcComm()"></div>
+                        </div>
+                        <div class="flex justify-between text-sm pt-2"><span class="font-medium">Eligible Stipend Comm <br><span class="text-[10px] text-slate-500">(Excludes Bonus)</span></span><span id="pol-stipend-comm" class="font-bold text-indigo-700">₹0</span></div>
+                        <div class="flex justify-between text-sm border-t pt-2"><span class="font-medium">Total Premium</span><span id="pol-total" class="font-bold">₹0</span></div>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white font-medium py-2.5 rounded-md mt-4">Save Policy</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Renewal Modal -->
+    <div id="modal-renewal" class="modal fixed inset-0 bg-slate-900/50 z-50 items-center justify-center backdrop-blur-sm no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-[400px]">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg">Log Renewal Premium</h3><button onclick="closeModal('modal-renewal')" class="text-slate-400"><i class="fas fa-times"></i></button></div>
+            <div class="p-6">
+                <form id="form-renewal" onsubmit="saveRenewal(event)" class="space-y-4">
+                    <div><label class="block text-sm font-medium mb-1">Select Agent</label><select id="ren-agent-select" required class="w-full border rounded-md p-2 text-sm bg-white"></select></div>
+                    <div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Month (1-12)</label><input type="number" id="ren-month" min="1" max="12" required class="w-full border rounded-md p-2 text-sm"></div><div><label class="block text-sm font-medium mb-1">Year</label><input type="number" id="ren-year" required class="w-full border rounded-md p-2 text-sm"></div></div>
+                    <div><label class="block text-sm font-medium mb-1">Renewal Premium (₹)</label><input type="number" id="ren-prem" required class="w-full border rounded-md p-2 text-sm"></div>
+                    <div><label class="block text-sm font-medium mb-1">Renewal Commission (₹)</label><input type="number" id="ren-comm" required class="w-full border rounded-md p-2 text-sm"></div>
+                    <p class="text-xs text-indigo-600 bg-indigo-50 p-2 rounded">Adds to agent's eligible commission for Stipend.</p>
+                    <button type="submit" class="w-full bg-indigo-600 text-white font-medium py-2.5 rounded-md mt-4">Save Renewal</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Competition Modal -->
+    <div id="modal-comp" class="modal fixed inset-0 bg-slate-900/50 z-50 items-center justify-center backdrop-blur-sm no-print">
+        <div class="bg-white rounded-xl shadow-2xl w-[800px] overflow-hidden flex flex-col max-h-[95vh]">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg">Launch Competition</h3><button onclick="closeModal('modal-comp')" class="text-slate-400"><i class="fas fa-times"></i></button></div>
+            <div class="p-6 overflow-y-auto flex-1">
+                <form id="form-comp" onsubmit="saveCompetition(event)" class="space-y-5">
+                    <div class="grid grid-cols-3 gap-4 border-b pb-5">
+                        <div class="col-span-1"><label class="block text-sm font-medium mb-1">Title</label><input type="text" id="comp-title" required class="w-full border rounded-md p-2 text-sm"></div><div><label class="block text-sm font-medium mb-1">Start Date</label><input type="date" id="comp-start" required class="w-full border rounded-md p-2 text-sm"></div><div><label class="block text-sm font-medium mb-1">End Date</label><input type="date" id="comp-end" required class="w-full border rounded-md p-2 text-sm"></div>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-lg"><label class="block text-sm font-bold text-blue-900 mb-2">Base Policy Eligibility</label><div class="flex items-center gap-3"><span class="text-sm font-medium">Min Premium Per Policy (₹)</span><input type="number" id="comp-min-prem-per-pol" value="0" class="w-full md:w-1/3 border rounded-md p-2 text-sm"></div></div>
+                    <div><div class="flex justify-between items-center mb-2 pb-2 border-b"><h4 class="font-bold">Levels & Targets</h4><button type="button" onclick="addLevelUI()" class="text-blue-600 font-bold"><i class="fas fa-plus"></i> Add Level</button></div><div id="levels-container" class="space-y-4"></div></div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-medium py-3 rounded-md mt-4">Launch Competition</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agent Prize Report Modal -->
+    <div id="modal-agent-report" class="modal fixed inset-0 bg-slate-900/50 z-50 items-center justify-center backdrop-blur-sm no-print">
+        <div id="report-form-view" class="bg-white rounded-xl shadow-2xl w-[500px]">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg">Agent Prize Report</h3><button onclick="closeModal('modal-agent-report')" class="text-slate-400"><i class="fas fa-times"></i></button></div>
+            <div class="p-6">
+                <form onsubmit="runAgentReport(event)" class="space-y-4">
+                    <div><label class="block text-sm font-medium mb-1">Select Agent</label><select id="report-agent-select" required class="w-full border rounded-md p-2 text-sm"></select></div>
+                    <div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-1">Period Start</label><input type="date" id="report-start" required class="w-full border rounded-md p-2 text-sm"></div><div><label class="block text-sm font-medium mb-1">Period End</label><input type="date" id="report-end" required class="w-full border rounded-md p-2 text-sm"></div></div>
+                    <button type="submit" class="w-full bg-slate-800 text-white font-medium py-2.5 rounded-md mt-4">Run Report</button>
+                </form>
+            </div>
+        </div>
+        <div id="report-result-view" class="hidden bg-white w-[800px] max-h-[90vh] flex-col rounded-xl shadow-2xl relative">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg">Report Preview</h3><div class="flex gap-2"><button onclick="printSection('report-print-content')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold"><i class="fas fa-print"></i> Print PDF</button><button onclick="document.getElementById('report-result-view').classList.add('hidden'); document.getElementById('report-form-view').classList.remove('hidden');" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm">Back</button></div></div>
+            <div class="flex-1 overflow-y-auto p-8" id="report-print-content"></div>
+        </div>
+    </div>
+
+    <!-- Business Report Modal -->
+    <div id="modal-biz-report" class="modal fixed inset-0 bg-slate-900/50 z-50 items-center justify-center backdrop-blur-sm no-print">
+        <div class="bg-white w-[900px] max-h-[90vh] flex flex-col rounded-xl shadow-2xl relative">
+            <div class="px-6 py-4 border-b flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-lg">Business Performance Report</h3>
+                <div class="flex gap-2">
+                    <button onclick="printSection('biz-print-content')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold"><i class="fas fa-print"></i> Print PDF</button>
+                    <button onclick="closeModal('modal-biz-report')" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm">Close</button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-8" id="biz-print-content"></div>
+        </div>
+    </div>
+
+    <!-- Graphic Poster Modal -->
+    <div id="modal-poster" class="modal fixed inset-0 bg-slate-900/90 z-[100] items-center justify-center backdrop-blur-md">
+        <div class="relative w-full max-w-2xl">
+            <div class="absolute -top-12 right-0 flex gap-4 no-print">
+                <button onclick="printSection('poster-content')" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg"><i class="fas fa-print"></i> Save PDF</button>
+                <button onclick="closeModal('modal-poster')" class="bg-slate-700 text-white px-4 py-2 rounded-lg font-bold shadow-lg"><i class="fas fa-times"></i> Close</button>
+            </div>
+            <div id="poster-content" class="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white rounded-2xl shadow-2xl overflow-hidden text-center p-12 border-4 border-yellow-400 relative">
+                <div class="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                <div class="relative z-10 space-y-6">
+                    <h2 class="text-yellow-400 font-bold tracking-widest uppercase text-sm mb-4">🏆 Achievement Unlocked 🏆</h2>
+                    <h1 class="text-5xl font-extrabold leading-tight" id="poster-agent-name">Agent Name</h1>
+                    <div class="w-24 h-1 bg-yellow-400 mx-auto rounded-full my-6"></div>
+                    <p class="text-xl text-blue-100 font-light">Has successfully achieved</p>
+                    <h2 class="text-4xl font-bold text-yellow-300 my-2" id="poster-level">Gold Level</h2>
+                    <p class="text-lg text-blue-200">in the <span class="font-bold text-white" id="poster-comp-title">Competition Name</span></p>
+                    <div class="mt-8 bg-white/10 p-6 rounded-xl border border-white/20 inline-block min-w-[300px]">
+                        <p class="text-sm uppercase tracking-wider text-blue-200 mb-1">Prize Won</p>
+                        <p class="text-3xl font-bold" id="poster-prize">Trophy</p>
+                    </div>
+                    <div class="pt-8 text-sm text-blue-300 font-medium"><p>LIC Alappuzha Branch | AgencyPro</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- CLOUD SYNC & LOGIC SCRIPT -->
+    <script>
+        const DB_KEY = 'insuranceAgencyV11'; 
+        let db = null;
+        let API_URL = localStorage.getItem('agencyProApiUrl');
+        let currentBizTab = 'summary';
+
+        function showLoading() { document.getElementById('loader').classList.remove('hidden'); document.getElementById('loader').classList.add('flex'); }
+        function hideLoading() { document.getElementById('loader').classList.add('hidden'); document.getElementById('loader').classList.remove('flex'); }
+
+        // --- CLOUD SYNC LOGIC ---
+        async function initApp() {
+            populateFilterDropdowns(); // Fill month/year dropdowns globally
+            if (!API_URL) { openModal('modal-setup'); return; }
+            showLoading();
+            try {
+                let res = await fetch(API_URL, { method: 'GET', redirect: 'follow' });
+                let text = await res.text();
+                try { db = JSON.parse(text); } catch(e) { throw new Error("Google returned HTML. Permissions issue."); }
+                if (!db || Object.keys(db).length === 0) { db = getSeedData(); await pushToCloud(); }
+                
+                // Safe backwards compat checks
+                if(!db.renewals) db.renewals = [];
+                db.agents.forEach(a => { if(!a.codeAllotmentDate && a.status === 'Passed/Active') a.codeAllotmentDate = new Date().toISOString().split('T')[0]; });
+                db.policies.forEach(p => { if(p.stipendComm === undefined) { p.fyc = p.nsp*0.2; p.bonusComm = p.nsp*0.08; p.spComm = p.sp*0.02; p.stipendComm = p.fyc + p.spComm; } });
+
+                localStorage.setItem(DB_KEY + '_offline', JSON.stringify(db));
+                renderAll();
+            } catch (e) {
+                console.error(e);
+                let useOff = confirm("Cloud Connection Failed! \nThis usually means the Google Script is restricted or needs to be deployed as a 'New Version'. \n\nContinue OFFLINE using local storage?");
+                if (useOff) { let localData = localStorage.getItem(DB_KEY + '_offline'); db = localData ? JSON.parse(localData) : getSeedData(); renderAll(); } 
+                else { localStorage.removeItem('agencyProApiUrl'); API_URL = null; openModal('modal-setup'); }
+            }
+            hideLoading();
+        }
+
+        async function saveApiUrl() { let url = document.getElementById('setup-api-url').value; if (!url.includes('script.google.com')) return alert('Valid URL required.'); localStorage.setItem('agencyProApiUrl', url); API_URL = url; closeModal('modal-setup'); await initApp(); }
+        function useOfflineMode() { let localData = localStorage.getItem(DB_KEY + '_offline'); db = localData ? JSON.parse(localData) : getSeedData(); closeModal('modal-setup'); renderAll(); }
+        async function saveDB() {
+            showLoading();
+            try { if (API_URL) await pushToCloud(); localStorage.setItem(DB_KEY + '_offline', JSON.stringify(db)); renderAll(); } 
+            catch(e) { alert("Failed to save to cloud. Saved offline locally."); localStorage.setItem(DB_KEY + '_offline', JSON.stringify(db)); renderAll(); }
+            hideLoading();
+        }
+        async function pushToCloud() { await fetch(API_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(db) }); }
+
+        function getSeedData() {
+            let curr = new Date(); let y = curr.getFullYear(); let m = String(curr.getMonth() + 1).padStart(2, '0');
+            return {
+                agents: [
+                    { id: 'a1', name: 'Ravi Kumar', phone: '9876543210', location: 'Alappuzha', category: 'Normal', status: 'Passed/Active', agencyCode: 'AG-101', codeAllotmentDate: `${y-1}-08-01`, fees: { reg: { amount: 500, paid: true }, exam: { amount: 600, paid: true }, training: { amount: 150, paid: true } } },
+                    { id: 'a2', name: 'Priya Sharma', phone: '9876543211', location: 'Kochi', category: 'RCA', status: 'Passed/Active', agencyCode: 'AG-102', codeAllotmentDate: `${y}-${m}-01`, fees: { reg: { amount: 500, paid: true }, exam: { amount: 600, paid: true }, training: { amount: 150, paid: true } } }
+                ],
+                policies: [ { id: 'p1', agentId: 'a1', planNumber: '914', nsp: 25000, sp: 0, totalPremium: 25000, date: `${y}-${m}-05`, fyc: 5000, bonusComm: 2000, spComm: 0, stipendComm: 5000 } ],
+                renewals: [], competitions: []
+            };
+        }
+
+        // --- UTILS ---
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+        function formatCurrency(num) { return '₹' + Number(num).toLocaleString('en-IN'); }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function printSection(elementId) { document.querySelectorAll('.print-area').forEach(el => el.classList.remove('print-area')); const el = document.getElementById(elementId); el.classList.add('print-area'); window.print(); el.classList.remove('print-area'); }
+        
+        function populateFilterDropdowns() {
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const mHtml = months.map((m,i) => `<option value="${i+1}">${m}</option>`).join('');
+            document.getElementById('biz-filter-month').innerHTML = mHtml;
+            document.getElementById('comp-filter-month').innerHTML = mHtml;
+            let currD = new Date();
+            document.getElementById('biz-filter-month').value = currD.getMonth() + 1;
+            document.getElementById('biz-filter-year').value = currD.getFullYear();
+            document.getElementById('comp-filter-month').value = currD.getMonth() + 1;
+            document.getElementById('comp-filter-year').value = currD.getFullYear();
+        }
+
+        function nav(view) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hide'));
+            document.getElementById(`view-${view}`).classList.remove('hide');
+            document.querySelectorAll('.nav-btn').forEach(el => { el.classList.remove('bg-blue-800', 'text-white'); el.classList.add('text-blue-100'); });
+            let activeBtn = document.getElementById(`nav-${view}`); activeBtn.classList.add('bg-blue-800', 'text-white'); activeBtn.classList.remove('text-blue-100');
+            if (view === 'business' && db) renderBusiness();
+        }
+
+        function renderAll() { if(!db) return; renderTopbar(); renderDashboard(); renderRecruitment(); renderBusiness(); renderCompetitions(); }
+
+        // --- DASHBOARD ---
+        function renderTopbar() { 
+            document.getElementById('top-active-agents').innerText = db.agents.filter(a => a.status === 'Passed/Active').length; 
+            const currM = new Date().getMonth(), currY = new Date().getFullYear(); 
+            document.getElementById('top-month-premium').innerText = formatCurrency(db.policies.filter(p => { let d = new Date(p.date); return d.getMonth() === currM && d.getFullYear() === currY; }).reduce((s, p) => s + p.totalPremium, 0)); 
+        }
+        
+        function renderDashboard() {
+            const currDate = new Date(), currM = currDate.getMonth(), currY = currDate.getFullYear(), lastY = currY - 1;
+            const ytdPol = db.policies.filter(p => new Date(p.date).getFullYear() === currY);
+            const prevPol = db.policies.filter(p => new Date(p.date).getFullYear() === lastY);
+            const ytdPrem = ytdPol.reduce((s, p) => s + p.totalPremium, 0), prevPrem = prevPol.reduce((s, p) => s + p.totalPremium, 0);
+
+            document.getElementById('stat-prospects').innerText = db.agents.length; document.getElementById('stat-agents').innerText = db.agents.filter(a => a.status === 'Passed/Active').length; document.getElementById('stat-policies').innerText = ytdPol.length; document.getElementById('stat-premium').innerText = formatCurrency(ytdPrem);
+            document.getElementById('label-curr-year-prem').innerText = `Curr Year (${currY})`; document.getElementById('yoy-curr-prem').innerText = formatCurrency(ytdPrem); document.getElementById('label-prev-year-prem').innerText = `Last Year (${lastY})`; document.getElementById('yoy-prev-prem').innerText = formatCurrency(prevPrem); setDiffUI(ytdPrem, prevPrem, 'yoy-prem-diff-container', 'yoy-prem-diff', true);
+            document.getElementById('label-curr-year-pol').innerText = `Curr Year (${currY})`; document.getElementById('yoy-curr-pol').innerText = ytdPol.length; document.getElementById('label-prev-year-pol').innerText = `Last Year (${lastY})`; document.getElementById('yoy-prev-pol').innerText = prevPol.length; setDiffUI(ytdPol.length, prevPol.length, 'yoy-pol-diff-container', 'yoy-pol-diff', false);
+
+            // Dashboard Active/Inactive Logic
+            let activeIds = new Set(db.policies.filter(p => new Date(p.date).getMonth() === currM && new Date(p.date).getFullYear() === currY).map(p=>p.agentId));
+            let activeList = [], inactiveList = [];
+            db.agents.filter(a => a.status === 'Passed/Active').forEach(a => { if(activeIds.has(a.id)) activeList.push(a.name); else inactiveList.push(a.name); });
+            document.getElementById('dash-active-count').innerText = activeList.length;
+            document.getElementById('dash-inactive-count').innerText = inactiveList.length;
+            document.getElementById('dash-active-agents').innerHTML = activeList.map(n => `<li><i class="fas fa-check text-green-500 mr-2"></i>${n}</li>`).join('') || `<li class="text-slate-400">None yet</li>`;
+            document.getElementById('dash-inactive-agents').innerHTML = inactiveList.map(n => `<li><i class="fas fa-circle text-slate-300 mr-2 text-[8px]"></i>${n}</li>`).join('') || `<li class="text-slate-400">Everyone is active!</li>`;
+
+            // Live Competitions
+            const activeComps = db.competitions.filter(c => { let s = new Date(c.startDate), e = new Date(c.endDate); e.setHours(23,59,59); return currDate >= s && currDate <= e; });
+            const list = document.getElementById('dash-competitions-list');
+            if(activeComps.length === 0) list.innerHTML = `<li class="p-6 text-center text-slate-500 text-sm">No competitions active today.</li>`;
+            else list.innerHTML = activeComps.map(c => `<li class="p-4 hover:bg-slate-50 border-b"><div class="flex justify-between items-center"><div><p class="font-bold">${c.title}</p><p class="text-xs text-slate-500">Ends: ${c.endDate} | <span class="font-semibold text-blue-600">${c.levels.length} Levels</span></p></div><span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded font-bold">LIVE</span></div></li>`).join('');
+        }
+        function setDiffUI(curr, prev, contId, textId, isCurrency) {
+            const diff = curr - prev, pct = prev > 0 ? ((diff / prev) * 100).toFixed(1) : (curr > 0 ? 100 : 0); const cont = document.getElementById(contId), txt = document.getElementById(textId); let valStr = isCurrency ? formatCurrency(Math.abs(diff)) : Math.abs(diff);
+            if (diff >= 0) { cont.className = "mt-2 p-2 rounded flex justify-between bg-green-50"; txt.className = "text-xs font-bold text-green-700"; txt.innerHTML = `<i class="fas fa-arrow-up mr-1"></i> ${valStr} (${pct}%)`; }
+            else { cont.className = "mt-2 p-2 rounded flex justify-between bg-red-50"; txt.className = "text-xs font-bold text-red-700"; txt.innerHTML = `<i class="fas fa-arrow-down mr-1"></i> ${valStr} (${Math.abs(pct)}%)`; }
+        }
+
+        // --- RECRUITMENT ---
+        function renderRecruitment() {
+            // Populate Location Datalist & Filter Dropdown
+            let locs = [...new Set(db.agents.map(a => a.location))].filter(Boolean);
+            document.getElementById('location-options').innerHTML = locs.map(l => `<option value="${l}">`).join('');
+            
+            let fLoc = document.getElementById('filter-location'); let curFLoc = fLoc.value;
+            fLoc.innerHTML = `<option value="All">All Locations</option>` + locs.map(l => `<option value="${l}">${l}</option>`).join('');
+            fLoc.value = locs.includes(curFLoc) ? curFLoc : 'All';
+
+            const cat = document.getElementById('filter-category').value, stat = document.getElementById('filter-status').value, loc = fLoc.value;
+            let filtered = db.agents.filter(a => (cat === 'All' || a.category === cat) && (stat === 'All' || a.status === stat) && (loc === 'All' || a.location === loc));
+            
+            document.getElementById('recruitment-tbody').innerHTML = filtered.map(a => `<tr class="hover:bg-slate-50 transition-colors"><td class="p-4"><div class="font-medium">${a.name}</div><div class="text-xs text-slate-500">${a.phone} | ${a.location}</div></td><td class="p-4"><span class="px-2.5 py-1 bg-slate-200 text-xs rounded-full font-medium">${a.category}</span></td><td class="p-4"><select onchange="updateAgentStatus('${a.id}', this.value)" class="border rounded px-2 py-1 text-sm bg-white ${a.status === 'Passed/Active' ? 'border-green-500 text-green-700 font-semibold' : ''}"><option ${a.status === 'Prospect' ? 'selected' : ''}>Prospect</option><option ${a.status === 'Registered' ? 'selected' : ''}>Registered</option><option ${a.status === 'Exam Pending' ? 'selected' : ''}>Exam Pending</option><option ${a.status === 'Passed/Active' ? 'selected' : ''}>Passed/Active</option></select>${a.agencyCode ? `<div class="text-xs text-green-600 mt-2 font-bold">Code: ${a.agencyCode}</div><div class="text-[10px] text-slate-500 font-semibold">Allotted: ${a.codeAllotmentDate}</div>` : ''}</td><td class="p-4 text-xs space-y-1 cursor-pointer" onclick="openFeesModal('${a.id}')"><div class="${a.fees.reg.paid ? 'text-green-600' : 'text-slate-400'}">Reg: ₹${a.fees.reg.amount}</div><div class="${a.fees.exam.paid ? 'text-green-600' : 'text-slate-400'}">Exam: ₹${a.fees.exam.amount}</div><div class="${a.fees.training.paid ? 'text-green-600' : 'text-slate-400'}">Train: ₹${a.fees.training.amount}</div></td><td class="p-4 text-right space-x-2"><button onclick="openAgentModal('${a.id}')" class="text-blue-500"><i class="fas fa-edit"></i></button><button onclick="deleteAgent('${a.id}')" class="text-red-400"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+        }
+        function openAgentModal(id = null) { document.getElementById('form-agent').reset(); if (id) { const a = db.agents.find(a => a.id === id); document.getElementById('ag-id').value = a.id; document.getElementById('ag-name').value = a.name; document.getElementById('ag-phone').value = a.phone; document.getElementById('ag-location').value = a.location; document.getElementById('ag-category').value = a.category; } else document.getElementById('ag-id').value = ''; openModal('modal-agent'); }
+        async function saveAgent(e) { e.preventDefault(); const id = document.getElementById('ag-id').value; const data = { name: document.getElementById('ag-name').value, phone: document.getElementById('ag-phone').value, location: document.getElementById('ag-location').value, category: document.getElementById('ag-category').value }; if (id) Object.assign(db.agents.find(a => a.id === id), data); else db.agents.push({ id: generateId(), status: 'Prospect', agencyCode: null, codeAllotmentDate: null, fees: { reg: { amount: 500, paid: false }, exam: { amount: 600, paid: false }, training: { amount: 150, paid: false } }, ...data }); await saveDB(); closeModal('modal-agent'); }
+        async function deleteAgent(id) { if (confirm("Delete agent, policies & renewals?")) { db.agents = db.agents.filter(a => a.id !== id); db.policies = db.policies.filter(p => p.agentId !== id); db.renewals = db.renewals.filter(r => r.agentId !== id); await saveDB(); } }
+        async function updateAgentStatus(id, newStatus) { let a = db.agents.find(a => a.id === id); if (newStatus === 'Passed/Active' && !a.agencyCode) { let code = prompt(`Enter Agency Code for ${a.name}:`); if (!code) { renderRecruitment(); return; } let dateStr = prompt(`Code Allotment Date (YYYY-MM-DD):`, new Date().toISOString().split('T')[0]); if (!dateStr || isNaN(Date.parse(dateStr))) { alert("Invalid date."); renderRecruitment(); return; } a.agencyCode = code; a.codeAllotmentDate = dateStr; } a.status = newStatus; await saveDB(); }
+        function openFeesModal(id) { let a = db.agents.find(a => a.id === id); document.getElementById('fee-agent-id').value = id; document.getElementById('fees-container').innerHTML = ['reg', 'exam', 'training'].map(k => `<div class="flex justify-between items-center p-3 border rounded"><div class="text-sm font-medium w-1/3 capitalize">${k}</div><input type="number" id="fee-amt-${k}" value="${a.fees[k].amount}" class="border rounded px-2 py-1 w-24 text-sm"><label class="flex items-center text-sm gap-2"><input type="checkbox" id="fee-paid-${k}" ${a.fees[k].paid ? 'checked' : ''}> Paid</label></div>`).join(''); openModal('modal-fees'); }
+        async function saveFees() { let id = document.getElementById('fee-agent-id').value, a = db.agents.find(a => a.id === id); ['reg', 'exam', 'training'].forEach(k => { a.fees[k].amount = parseFloat(document.getElementById(`fee-amt-${k}`).value) || 0; a.fees[k].paid = document.getElementById(`fee-paid-${k}`).checked; }); await saveDB(); closeModal('modal-fees'); }
+
+        // --- BUSINESS & STIPEND ---
+        function toggleBusinessView(view) {
+            currentBizTab = view;
+            document.getElementById('tab-biz-summary').className = view === 'summary' ? "px-4 py-1.5 rounded-md bg-white shadow-sm text-slate-800" : "px-4 py-1.5 rounded-md text-slate-500 hover:text-slate-800";
+            document.getElementById('tab-biz-datewise').className = view === 'datewise' ? "px-4 py-1.5 rounded-md bg-white shadow-sm text-slate-800" : "px-4 py-1.5 rounded-md text-slate-500 hover:text-slate-800";
+            if (view === 'summary') { document.getElementById('business-summary-container').classList.remove('hide'); document.getElementById('business-datewise-container').classList.add('hide'); }
+            else { document.getElementById('business-summary-container').classList.add('hide'); document.getElementById('business-datewise-container').classList.remove('hide'); }
+            renderBusiness();
+        }
+
+        function renderBusiness() {
+            // Sync Agent filter dropdown
+            let agF = document.getElementById('biz-filter-agent'); let curAg = agF.value;
+            agF.innerHTML = `<option value="All">All Agents</option>` + db.agents.filter(a=>a.status==='Passed/Active').map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+            agF.value = curAg && db.agents.some(a=>a.id===curAg) ? curAg : 'All';
+
+            const fMonth = parseInt(document.getElementById('biz-filter-month').value);
+            const fYear = parseInt(document.getElementById('biz-filter-year').value);
+            const fAgent = document.getElementById('biz-filter-agent').value;
+
+            let activeAgents = db.agents.filter(a => a.status === 'Passed/Active' && (fAgent === 'All' || a.id === fAgent));
+
+            if (currentBizTab === 'summary') {
+                document.getElementById('business-summary-container').innerHTML = activeAgents.map(a => {
+                    let allotDate = new Date(a.codeAllotmentDate || new Date().toISOString().split('T')[0]);
+                    
+                    // Logic travels back in time to the explicitly filtered month/year
+                    let filterDate = new Date(fYear, fMonth - 1, 28); 
+                    
+                    let monthsElapsed = (filterDate.getFullYear() - allotDate.getFullYear()) * 12 + (filterDate.getMonth() - allotDate.getMonth()) + 1;
+                    
+                    let stHtml = '';
+                    let pTotalHtml = '';
+
+                    if (monthsElapsed <= 0) {
+                        stHtml = `<div class="p-3 rounded-lg bg-slate-50 border mt-2"><p class="text-[10px] font-bold text-slate-600 uppercase">Status</p><p class="text-sm font-semibold">Not Allotted Yet</p></div>`;
+                        pTotalHtml = `0 Policies, ₹0`;
+                    } else {
+                        let agencyYear = Math.max(1, Math.ceil(monthsElapsed / 12));
+                        let agencyMonth = monthsElapsed % 12 === 0 ? 12 : monthsElapsed % 12;
+                        
+                        let yearStart = new Date(allotDate); yearStart.setFullYear(yearStart.getFullYear() + (agencyYear - 1));
+                        let yearEnd = new Date(yearStart); yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+                        
+                        let yPols = db.policies.filter(p => { let d = new Date(p.date); return p.agentId === a.id && d >= yearStart && d < yearEnd && d <= filterDate; });
+                        let yTot = yPols.reduce((s, p) => s + p.totalPremium, 0);
+
+                        if (a.category === 'Normal') {
+                            let ok = yTot >= 100000 || (yPols.length >= 6 && yTot >= 50000) || (yPols.length >= 12);
+                            stHtml = `<div class="p-3 rounded-lg bg-${ok?'green':'slate'}-50 border border-${ok?'green':'slate'}-200 mt-2"><p class="text-[10px] font-bold text-${ok?'green':'slate'}-700 uppercase">MBC Status (Year ${agencyYear} progress as of filter)</p><p class="text-sm font-semibold flex justify-between"><span>${ok?'<i class="fas fa-check text-green-500"></i> Qualified':'Pending'}</span><span class="text-xs font-normal">${yPols.length} Pol, ${formatCurrency(yTot)}</span></p></div>`;
+                        } else {
+                            if (monthsElapsed > 36) {
+                                stHtml = `<div class="p-3 rounded-lg bg-slate-50 border mt-2"><p class="text-[10px] font-bold text-slate-600 uppercase">Stipend</p><p class="text-sm font-semibold text-slate-400">Period Ended (36 Months)</p></div>`;
+                            } else {
+                                let mPols = yPols.filter(p => { let d = new Date(p.date); return d.getMonth()+1 === fMonth && d.getFullYear() === fYear; });
+                                let mComm = mPols.reduce((s, p) => s + p.stipendComm, 0) + db.renewals.filter(r => r.agentId === a.id && r.month === fMonth && r.year === fYear).reduce((s, r) => s + r.comm, 0);
+                                let reqP = 0, reqC = 0;
+                                if (a.category === 'RCA') { if(monthsElapsed<=2){reqP=1;reqC=1200;}else if(monthsElapsed<=4){reqP=1;reqC=1800;}else if(monthsElapsed<=6){reqP=2;reqC=2400;}else if(monthsElapsed<=8){reqP=2;reqC=2800;}else if(monthsElapsed===9){reqP=3;reqC=2800;}else{reqP=3;reqC=3600;} }
+                                else { if(monthsElapsed<=4){reqP=1;reqC=2000;}else if(monthsElapsed<=8){reqP=2;reqC=4000;}else{reqP=3;reqC=6000;} }
+                                let ok = mPols.length >= reqP && mComm >= reqC;
+                                stHtml = `<div class="p-3 rounded-lg bg-${ok?'indigo':'slate'}-50 border border-${ok?'indigo':'slate'}-200 mt-2"><p class="text-[10px] font-bold text-${ok?'indigo':'slate'}-700 uppercase">Stipend Status (Month ${monthsElapsed}/36)</p><p class="text-sm font-semibold flex justify-between"><span>${ok?'<i class="fas fa-star text-indigo-500"></i> Qualified':'Pending'}</span><span class="text-xs font-normal">Filtered Mth: ${mPols.length} Pol, ${formatCurrency(mComm)} Comm</span></p></div>`;
+                            }
+                        }
+                        let polsM = db.policies.filter(p => { let d = new Date(p.date); return p.agentId === a.id && d.getMonth()+1 === fMonth && d.getFullYear() === fYear; });
+                        pTotalHtml = `${polsM.length} Policies, ${formatCurrency(polsM.reduce((s,p)=>s+p.totalPremium,0))}`;
+                    }
+
+                    return `<div class="bg-white rounded-xl shadow-sm border p-6 flex flex-col gap-2 biz-print-card"><div><h3 class="font-bold text-lg">${a.name} <span class="text-sm font-normal text-slate-500">(${a.agencyCode})</span></h3><p class="text-xs text-slate-500 mt-1">${a.category} | Allotted: ${a.codeAllotmentDate} | Filtered Month: ${pTotalHtml}</p></div>${stHtml}</div>`;
+                }).join('');
+            } else {
+                let filteredPols = db.policies.filter(p => {
+                    let d = new Date(p.date);
+                    return d.getMonth()+1 === fMonth && d.getFullYear() === fYear && (fAgent === 'All' || p.agentId === fAgent);
+                });
+                document.getElementById('business-datewise-tbody').innerHTML = filteredPols.sort((a,b) => new Date(b.date) - new Date(a.date)).map(p => `<tr class="hover:bg-slate-50"><td class="p-4">${p.date}</td><td class="p-4">${(db.agents.find(a=>a.id===p.agentId)||{}).name}</td><td class="p-4 font-semibold">${p.planNumber}</td><td class="p-4 text-right">${formatCurrency(p.nsp)} / ${formatCurrency(p.sp)}</td><td class="p-4 text-right font-bold text-blue-700">${formatCurrency(p.totalPremium)}</td><td class="p-4 text-right no-print"><button onclick="openPolicyModal('${p.agentId}', '${p.id}')" class="text-blue-500 mr-2"><i class="fas fa-edit"></i></button><button onclick="deletePolicy('${p.id}')" class="text-red-400"><i class="fas fa-trash"></i></button></td></tr>`).join('') || `<tr><td colspan="6" class="p-4 text-center">No policies in this period.</td></tr>`;
+            }
+        }
+
+        function generateBizReport() {
+            const m = document.getElementById('biz-filter-month').options[document.getElementById('biz-filter-month').selectedIndex].text;
+            const y = document.getElementById('biz-filter-year').value;
+            let reportHtml = `<div class="text-center mb-8 border-b pb-4"><h2 class="text-2xl font-bold uppercase">Agent Performance Report</h2><p class="text-slate-500 mt-1">Period: ${m} ${y}</p></div>`;
+            
+            if (currentBizTab === 'summary') reportHtml += `<div class="grid gap-4">${document.getElementById('business-summary-container').innerHTML}</div>`;
+            else reportHtml += `<table class="w-full text-left border-collapse border"><thead class="bg-slate-800 text-white text-xs uppercase"><th class="p-3 border">Date</th><th class="p-3 border">Agent</th><th class="p-3 border">Plan</th><th class="p-3 border text-right">Prem Split</th><th class="p-3 border text-right">Total Prem</th></thead><tbody class="text-sm">${document.getElementById('business-datewise-tbody').innerHTML}</tbody></table>`;
+            
+            document.getElementById('biz-print-content').innerHTML = reportHtml;
+            // Clean up print buttons inside the summary cards injected into print view
+            document.querySelectorAll('#biz-print-content .no-print').forEach(el => el.remove());
+            
+            openModal('modal-biz-report');
+        }
+
+        function calcComm() {
+            let nsp = parseFloat(document.getElementById('pol-nsp').value)||0, sp = parseFloat(document.getElementById('pol-sp').value)||0;
+            document.getElementById('pol-stipend-comm').innerText = formatCurrency(nsp*(parseFloat(document.getElementById('pol-nsp-pct').value)||0)/100 + sp*(parseFloat(document.getElementById('pol-sp-pct').value)||0)/100);
+            document.getElementById('pol-total').innerText = formatCurrency(nsp+sp);
+        }
+        function openPolicyModal(agentId = null, polId = null) {
+            document.getElementById('form-policy').reset(); document.getElementById('pol-agent-select').innerHTML = db.agents.filter(a => a.status === 'Passed/Active').map(a => `<option value="${a.id}">${a.name} (${a.agencyCode})</option>`).join('');
+            if (polId) {
+                const p = db.policies.find(p => p.id === polId); document.getElementById('pol-id').value = p.id; document.getElementById('pol-agent-select').value = p.agentId; document.getElementById('pol-date').value = p.date.split('T')[0]; document.getElementById('pol-plan').value = p.planNumber; document.getElementById('pol-nsp').value = p.nsp; document.getElementById('pol-sp').value = p.sp;
+                if(p.fyc !== undefined) { document.getElementById('pol-nsp-pct').value = p.nsp>0?(p.fyc/p.nsp)*100:20; document.getElementById('pol-bonus-pct').value = p.nsp>0?(p.bonusComm/p.nsp)*100:8; document.getElementById('pol-sp-pct').value = p.sp>0?(p.spComm/p.sp)*100:2; }
+            } else { document.getElementById('pol-id').value = ''; if(agentId) document.getElementById('pol-agent-select').value = agentId; document.getElementById('pol-date').value = new Date().toISOString().split('T')[0]; document.getElementById('pol-nsp-pct').value = 20; document.getElementById('pol-bonus-pct').value = 8; document.getElementById('pol-sp-pct').value = 2; }
+            calcComm(); openModal('modal-policy');
+        }
+        async function savePolicy(e) {
+            e.preventDefault(); let nsp = parseFloat(document.getElementById('pol-nsp').value)||0, sp = parseFloat(document.getElementById('pol-sp').value)||0;
+            let fyc = nsp * (parseFloat(document.getElementById('pol-nsp-pct').value)||0)/100, spComm = sp * (parseFloat(document.getElementById('pol-sp-pct').value)||0)/100;
+            const data = { agentId: document.getElementById('pol-agent-select').value, planNumber: document.getElementById('pol-plan').value, date: document.getElementById('pol-date').value, nsp, sp, totalPremium: nsp+sp, fyc, bonusComm: nsp*(parseFloat(document.getElementById('pol-bonus-pct').value)||0)/100, spComm, stipendComm: fyc+spComm };
+            let polId = document.getElementById('pol-id').value; if(polId) Object.assign(db.policies.find(p => p.id === polId), data); else db.policies.push({ id: generateId(), ...data });
+            await saveDB(); closeModal('modal-policy');
+        }
+        async function deletePolicy(id) { if(confirm('Delete policy?')) { db.policies = db.policies.filter(p => p.id !== id); await saveDB(); } }
+
+        function openRenewalModal() { document.getElementById('form-renewal').reset(); document.getElementById('ren-agent-select').innerHTML = db.agents.filter(a => a.status === 'Passed/Active').map(a => `<option value="${a.id}">${a.name} (${a.agencyCode})</option>`).join(''); let d = new Date(); document.getElementById('ren-month').value = d.getMonth() + 1; document.getElementById('ren-year').value = d.getFullYear(); openModal('modal-renewal'); }
+        async function saveRenewal(e) { e.preventDefault(); db.renewals.push({ id: generateId(), agentId: document.getElementById('ren-agent-select').value, month: parseInt(document.getElementById('ren-month').value), year: parseInt(document.getElementById('ren-year').value), premium: parseFloat(document.getElementById('ren-prem').value), comm: parseFloat(document.getElementById('ren-comm').value) }); await saveDB(); closeModal('modal-renewal'); }
+
+
+        // --- COMPETITIONS ---
+        function evaluateAgentForComp(agent, comp) {
+            let cs = new Date(comp.startDate), ce = new Date(comp.endDate); ce.setHours(23, 59, 59);
+            let ep = db.policies.filter(p => { let pd = new Date(p.date); return p.agentId === agent.id && pd >= cs && pd <= ce && ((comp.minPremiumPerPolicy === 0) || (p.nsp >= comp.minPremiumPerPolicy) || (p.sp >= comp.minPremiumPerPolicy)); });
+            let tp = ep.reduce((s, p) => s + p.totalPremium, 0), nop = ep.length, lvl = null, pz = '-';
+            if (nop > 0 || comp.levels.some(l => l.reqTp===0 && l.reqSp===0 && l.reqNsp===0 && l.reqNop===0)) {
+                for (let l of [...comp.levels].reverse()) {
+                    let lp = l.plans.trim() !== '' ? ep.filter(p => l.plans.split(',').map(s=>s.trim()).includes(p.planNumber)) : ep;
+                    let lnop = lp.length, lsp = lp.reduce((s,p)=>s+p.sp,0), lnsp = lp.reduce((s,p)=>s+p.nsp,0), ltp = lp.reduce((s,p)=>s+p.totalPremium,0);
+                    let ct = []; if(l.reqNop>0) ct.push(lnop>=l.reqNop); if(l.reqSp>0) ct.push(lsp>=l.reqSp); if(l.reqNsp>0) ct.push(lnsp>=l.reqNsp); if(l.reqTp>0) ct.push(ltp>=l.reqTp);
+                    if (ct.length === 0 || (l.condition === 'AND' ? ct.every(r=>r) : ct.some(r=>r))) { lvl = l; pz = l.prizeType==='cash'?`Cash: ₹${l.prizeValue}`:l.prizeType==='percent'?`Bonus: ₹${formatCurrency(ltp*(parseFloat(l.prizeValue)/100))} (${l.prizeValue}%)`:`Gift: ${l.prizeValue}`; break; }
+                }
+            }
+            return { baseTotalPrem: tp, baseNop: nop, achievedLevel: lvl, prizeString: pz };
+        }
+
+        let compLevelCount = 0;
+        function openCompModal() { document.getElementById('form-comp').reset(); let d = new Date(); document.getElementById('comp-start').value = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]; document.getElementById('comp-end').value = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]; document.getElementById('levels-container').innerHTML = ''; compLevelCount = 0; addLevelUI(); openModal('modal-comp'); }
+        function addLevelUI() { compLevelCount++; document.getElementById('levels-container').insertAdjacentHTML('beforeend', `<div class="p-4 border rounded-lg bg-white shadow-sm relative level-block" id="level-${compLevelCount}"><button type="button" onclick="document.getElementById('level-${compLevelCount}').remove()" class="absolute top-2 right-2 text-red-400"><i class="fas fa-times"></i></button><div class="grid grid-cols-4 gap-3 mb-3 items-end"><div class="col-span-2"><label class="block text-xs font-bold mb-1">Level Name</label><input type="text" class="lvl-name w-full border p-1.5 text-sm" required></div><div class="col-span-2"><label class="block text-xs font-bold mb-1">Logic</label><select class="lvl-cond w-full border p-1.5 text-sm bg-blue-50"><option value="AND">Hit ALL targets (AND)</option><option value="OR">Hit ANY target (OR)</option></select></div></div><div class="grid grid-cols-4 gap-3 mb-3"><div><label class="block text-xs font-bold mb-1">Req NOP</label><input type="number" class="lvl-nop w-full border p-1.5 text-sm" value="0"></div><div><label class="block text-xs font-bold mb-1">Req SP</label><input type="number" class="lvl-sp w-full border p-1.5 text-sm" value="0"></div><div><label class="block text-xs font-bold mb-1">Req NSP</label><input type="number" class="lvl-nsp w-full border p-1.5 text-sm" value="0"></div><div><label class="block text-xs font-bold mb-1">Req TP</label><input type="number" class="lvl-tp w-full border p-1.5 text-sm" value="0"></div></div><div class="grid grid-cols-4 gap-3"><div class="col-span-2"><label class="block text-xs font-bold mb-1">Plans (csv)</label><input type="text" class="lvl-plans w-full border p-1.5 text-sm"></div><div><label class="block text-xs font-bold mb-1">Prize Type</label><select class="lvl-ptype w-full border p-1.5 text-sm"><option value="gift">Gift</option><option value="cash">Cash</option><option value="percent">% Prem</option></select></div><div><label class="block text-xs font-bold mb-1">Prize Value</label><input type="text" class="lvl-pval w-full border p-1.5 text-sm" required></div></div></div>`); }
+        async function saveCompetition(e) { e.preventDefault(); const blocks = document.querySelectorAll('.level-block'); if(blocks.length === 0) return alert('Add level.'); db.competitions.push({ id: generateId(), title: document.getElementById('comp-title').value, startDate: document.getElementById('comp-start').value, endDate: document.getElementById('comp-end').value, minPremiumPerPolicy: parseFloat(document.getElementById('comp-min-prem-per-pol').value) || 0, levels: Array.from(blocks).map(b => ({ name: b.querySelector('.lvl-name').value, condition: b.querySelector('.lvl-cond').value, reqNop: parseInt(b.querySelector('.lvl-nop').value)||0, reqSp: parseFloat(b.querySelector('.lvl-sp').value)||0, reqNsp: parseFloat(b.querySelector('.lvl-nsp').value)||0, reqTp: parseFloat(b.querySelector('.lvl-tp').value)||0, plans: b.querySelector('.lvl-plans').value, prizeType: b.querySelector('.lvl-ptype').value, prizeValue: b.querySelector('.lvl-pval').value })) }); await saveDB(); closeModal('modal-comp'); }
+        async function deleteCompetition(id) { if(confirm("Delete competition?")) { db.competitions = db.competitions.filter(c => c.id !== id); await saveDB(); } }
+        function showPoster(an, ln, ct, pz) { document.getElementById('poster-agent-name').innerText = an; document.getElementById('poster-level').innerText = ln; document.getElementById('poster-comp-title').innerText = ct; document.getElementById('poster-prize').innerText = pz; openModal('modal-poster'); }
+
+        function toggleCompFilters() {
+            let type = document.getElementById('comp-filter-type').value;
+            document.getElementById('comp-filter-month').classList.toggle('hide', type !== 'month');
+            document.getElementById('comp-filter-year').classList.toggle('hide', type !== 'month' && type !== 'year');
+        }
+
+        function renderCompetitions() {
+            let type = document.getElementById('comp-filter-type').value;
+            let fM = parseInt(document.getElementById('comp-filter-month').value);
+            let fY = parseInt(document.getElementById('comp-filter-year').value);
+            let currDate = new Date();
+            
+            let filteredComps = db.competitions.filter(c => {
+                let s = new Date(c.startDate); let e = new Date(c.endDate); e.setHours(23, 59, 59);
+                if (type === 'live') return currDate >= s && currDate <= e;
+                if (type === 'month') return s.getMonth()+1 <= fM && e.getMonth()+1 >= fM && s.getFullYear() <= fY && e.getFullYear() >= fY;
+                if (type === 'year') return s.getFullYear() <= fY && e.getFullYear() >= fY;
+                return true; // 'all'
+            });
+
+            const activeAgents = db.agents.filter(a => a.status === 'Passed/Active');
+            document.getElementById('competitions-container').innerHTML = filteredComps.sort((a,b) => new Date(b.startDate) - new Date(a.startDate)).map(c => {
+                let e = new Date(c.endDate); e.setHours(23, 59, 59); let ended = new Date() > e;
+                let lb = activeAgents.map(a => ({ agent: a, ...evaluateAgentForComp(a, c) })).sort((a, b) => b.baseTotalPrem - a.baseTotalPrem);
+                return `<div class="bg-white rounded-xl shadow-sm border overflow-hidden mb-6"><div class="bg-slate-800 text-white p-4 flex justify-between items-center"><div><h3 class="font-bold text-lg">${c.title} ${ended ? '<span class="px-2 py-0.5 ml-2 bg-slate-600 text-[10px] rounded uppercase">Ended</span>' : ''}</h3><p class="text-xs text-slate-300 mt-1"><i class="far fa-calendar-alt"></i> ${c.startDate} to ${c.endDate}</p></div><div class="flex items-center gap-4"><div class="text-right"><p class="text-[10px] text-blue-200 uppercase">Min Prem/Pol</p><p class="font-bold text-sm">${formatCurrency(c.minPremiumPerPolicy)}</p></div><div class="w-px h-8 bg-slate-600"></div><button onclick="deleteCompetition('${c.id}')" class="text-red-400 text-sm"><i class="fas fa-trash"></i> Delete</button></div></div><div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead class="bg-slate-100 text-slate-600 text-xs uppercase"><th class="p-3 pl-6">Rank & Agent</th><th class="p-3 text-right">NOP</th><th class="p-3 text-right">Total Prem</th><th class="p-3 text-center">Level Achieved</th><th class="p-3 pr-6 text-right">Poster</th></thead><tbody class="text-sm divide-y">${lb.map((r, i) => `<tr><td class="p-3 pl-6 font-medium text-slate-800">#${i + 1} ${r.agent.name} <span class="text-xs text-slate-400 block">${r.agent.agencyCode}</span></td><td class="p-3 text-right">${r.baseNop}</td><td class="p-3 text-right font-bold text-blue-700">${formatCurrency(r.baseTotalPrem)}</td><td class="p-3 text-center">${r.achievedLevel ? `<span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-bold">${r.achievedLevel.name}</span>` : '<span class="text-slate-400 text-xs">Not Qualified</span>'}</td><td class="p-3 pr-6 text-right">${(ended && r.achievedLevel) ? `<button onclick="showPoster('${r.agent.name}', '${r.achievedLevel.name}', '${c.title.replace(/'/g, "\\'")}', '${r.prizeString}')" class="text-blue-600 font-bold text-xs hover:underline"><i class="fas fa-image mr-1"></i> Generate</button>` : '-'}</td></tr>`).join('')}</tbody></table></div></div>`;
+            }).join('') || `<div class="bg-white p-6 text-center text-slate-500 rounded border">No competitions found for this filter.</div>`;
+        }
+
+        function openAgentReportModal() {
+            document.getElementById('report-agent-select').innerHTML = db.agents.filter(a => a.status === 'Passed/Active').map(a => `<option value="${a.id}">${a.name} (${a.agencyCode})</option>`).join('');
+            let d = new Date(); document.getElementById('report-start').value = new Date(d.getFullYear(), 0, 1).toISOString().split('T')[0]; document.getElementById('report-end').value = new Date(d.getFullYear(), 11, 31).toISOString().split('T')[0];
+            document.getElementById('report-form-view').classList.remove('hidden'); document.getElementById('report-result-view').classList.add('hidden'); openModal('modal-agent-report');
+        }
+
+        function generateAgentReport(e) {
+            e.preventDefault(); const a = db.agents.find(a => a.id === document.getElementById('report-agent-select').value); if(!a) return;
+            const rs = new Date(document.getElementById('report-start').value), re = new Date(document.getElementById('report-end').value); re.setHours(23,59,59);
+            let rr = []; db.competitions.forEach(c => { if (new Date(c.startDate) <= re && new Date(c.endDate) >= rs) { let res = evaluateAgentForComp(a, c); if (res.achievedLevel) rr.push({ c, ...res }); } });
+            document.getElementById('report-print-content').innerHTML = `<div class="text-center mb-8 border-b pb-4"><h2 class="text-2xl font-bold uppercase">Competition Prize Report</h2><p class="text-slate-500 mt-1">Period: ${document.getElementById('report-start').value} to ${document.getElementById('report-end').value}</p><div class="mt-4 flex justify-center gap-6"><div class="text-center"><p class="text-xs text-slate-400 uppercase font-bold">Agent</p><p class="font-bold text-blue-900 text-lg">${a.name}</p></div><div class="w-px bg-slate-300"></div><div class="text-center"><p class="text-xs text-slate-400 uppercase font-bold">Code</p><p class="font-bold text-blue-900 text-lg">${a.agencyCode}</p></div></div></div>${rr.length===0?'<p class="text-center text-slate-500 py-10 font-medium text-lg">No prizes won in this period.</p>':`<table class="w-full text-left border-collapse border border-slate-200"><thead><tr class="bg-slate-800 text-white text-xs uppercase"><th class="p-3 border">Competition</th><th class="p-3 border text-center">Level Achieved</th><th class="p-3 border text-right">Prize Earned</th></tr></thead><tbody class="text-sm">${rr.map(r => `<tr><td class="p-3 border font-semibold">${r.c.title} <br><span class="text-xs text-slate-500 font-normal">${r.c.startDate} to ${r.c.endDate}</span></td><td class="p-3 border text-center font-bold text-yellow-600 bg-yellow-50">${r.achievedLevel.name}</td><td class="p-3 border text-right font-bold text-green-700 bg-green-50">${r.prizeString}</td></tr>`).join('')}</tbody></table>`}<div class="mt-12 text-center text-xs text-slate-400"><p>AgencyPro | ${new Date().toLocaleDateString()}</p></div>`;
+            document.getElementById('report-form-view').classList.add('hidden'); document.getElementById('report-result-view').classList.remove('hidden'); document.getElementById('report-result-view').classList.add('flex');
+        }
+
+        function exportCSV() {
+            let csv = "Type,Name,Phone,Location,Category,Status,Agency Code,Code Allotted,Total Policies,YTD Premium\n";
+            db.agents.forEach(a => { let pols = db.policies.filter(p => p.agentId === a.id); csv += `Agent,"${a.name}",${a.phone},"${a.location}",${a.category},${a.status},${a.agencyCode || 'N/A'},${a.codeAllotmentDate || 'N/A'},${pols.length},${pols.reduce((s, p) => s + p.totalPremium, 0)}\n`; });
+            const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); link.download = `agency_report_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+
+        // Init
+        initApp();
+    </script>
+</body>
+</html>
